@@ -1,0 +1,7 @@
+apiVersion: v2
+description: Chart for deploying Wireguard
+name: wireguard
+type: application
+version: 0.1.0
+maintainers:
+  - name: Dan Sosedoff

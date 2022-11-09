@@ -1,0 +1,15 @@
+apiVersion: v1
+entries:
+  wireguard:
+  - apiVersion: v2
+    created: "2022-11-08T20:34:42.463758-06:00"
+    description: Chart for deploying Wireguard
+    digest: 93508de0b715cd1d208ebd9d9c9b1efb2fce8f36a81784f7fb8de4d17b5cc3a7
+    maintainers:
+    - name: Dan Sosedoff
+    name: wireguard
+    type: application
+    urls:
+    - wireguard-0.1.0.tgz
+    version: 0.1.0
+generated: "2022-11-08T20:34:42.463216-06:00"

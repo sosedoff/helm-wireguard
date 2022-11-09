@@ -1,0 +1,25 @@
+{{- $values := .Values }}
+{{- with .Values.loadbalancer }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ default "wireguard-lb" .name }}
+  {{- with (default dict .annotations) }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: LoadBalancer
+  selector:
+    app: wireguard
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
+    - name: wireguard
+      protocol: UDP
+      port: {{ $values.listenPort }}
+      targetPort: {{ $values.listenPort }}
+{{- end }}
