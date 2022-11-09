@@ -2,6 +2,13 @@
 
 TODO: Writeme
 
+## Installation
+
+```
+helm repo add wireguard https://raw.githubusercontent.com/sosedoff/helm-wireguard/main/repo/
+helm repo update
+```
+
 ## Values
 
 ```yaml
