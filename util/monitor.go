@@ -10,9 +10,23 @@ import (
 )
 
 const (
-	// Peer will be considered inactive if last handshake was received over X minutes
+	// How often to run monitor
+	monitorSchedule = 5 * time.Second
+
+	// Peer to be considered inactive based on last handshake or data transmission time
 	inactiveHandshakeTreshold = 3 * time.Minute
+	inactiveTxTreshold        = 1 * time.Minute
 )
+
+var (
+	peerMap   = map[string]*wgtypes.Peer{}
+	peerTxMap = map[string]time.Time{}
+)
+
+type peerStats struct {
+	count  int
+	active int
+}
 
 func startPeersMonitor(ctx context.Context, iface string) {
 	log.Println("starting peers monitor for", iface)
@@ -22,43 +36,45 @@ func startPeersMonitor(ctx context.Context, iface string) {
 		log.Fatal("monitor failed to obtain wireguard client:", err)
 	}
 
-	ticker := time.NewTicker(time.Second * 5)
+	ticker := time.NewTicker(monitorSchedule)
 	defer ticker.Stop()
-
-	peerMap := map[string]*wgtypes.Peer{}
-
-	checkPeers := func() {
-		device, err := client.Device(iface)
-		if err != nil {
-			log.Println("monitor failed to get device for", iface)
-		}
-
-		numTotal := len(device.Peers)
-		numActive := 0
-
-		for _, peer := range device.Peers {
-			key := peer.PublicKey.String()
-
-			lastPeer := peerMap[key]
-			if lastPeer != nil && isPeerActive(lastPeer, &peer) {
-				numActive++
-			}
-
-			peerMap[key] = &peer
-		}
-
-		log.Printf("peers total=%v active=%v\n", numTotal, numActive)
-	}
 
 	for {
 		select {
 		case <-ticker.C:
-			checkPeers()
+			stats, err := checkPeers(client, iface)
+			if err != nil {
+				log.Println("monitor error:", err)
+				break
+			}
+			log.Printf("peer monitor: total=%v active=%v\n", stats.count, stats.active)
 		case <-ctx.Done():
 			log.Println("stopping peer monitor")
 			return
 		}
 	}
+}
+
+func checkPeers(client *wgctrl.Client, iface string) (stats peerStats, err error) {
+	device, err := client.Device(iface)
+	if err != nil {
+		return stats, err
+	}
+
+	stats.count = len(device.Peers)
+
+	for _, peer := range device.Peers {
+		key := peer.PublicKey.String()
+
+		lastPeer := peerMap[key]
+		if lastPeer != nil && isPeerActive(lastPeer, &peer) {
+			stats.active++
+		}
+
+		peerMap[key] = &peer
+	}
+
+	return stats, nil
 }
 
 func isPeerActive(prevPeer, peer *wgtypes.Peer) bool {
@@ -73,12 +89,24 @@ func isPeerActive(prevPeer, peer *wgtypes.Peer) bool {
 		prevHandshakeTime = peer.LastHandshakeTime
 	}
 
-	// Mark as inactive when has not seen for over N minutes
-	diff := peer.LastHandshakeTime.Sub(prevHandshakeTime)
-	if diff > inactiveHandshakeTreshold {
-		return false
+	key := peer.PublicKey.String()
+	now := time.Now()
+
+	// Peer is actively sending or receiving data
+	if peer.ReceiveBytes > prevPeer.ReceiveBytes ||
+		peer.TransmitBytes > prevPeer.TransmitBytes {
+		peerTxMap[key] = now
+		return true
 	}
 
-	return peer.ReceiveBytes >= prevPeer.ReceiveBytes ||
-		peer.TransmitBytes >= prevPeer.TransmitBytes
+	handshakeDiff := peer.LastHandshakeTime.Sub(prevHandshakeTime)
+	txDiff := now.Sub(peerTxMap[key])
+
+	// Peer handshake has expired but still sending data
+	if handshakeDiff > inactiveHandshakeTreshold {
+		return txDiff > inactiveTxTreshold
+	}
+
+	// Detemine active status based on last data transfer
+	return txDiff < inactiveTxTreshold
 }
