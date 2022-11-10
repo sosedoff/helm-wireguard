@@ -30,6 +30,10 @@ spec:
               value: "true"
             - name: WG_ENABLE
               value: "true"
+            {{- if .Values.metrics }}
+            - name: WG_PEER_MONITOR
+              value: "true"
+            {{- end }}
           securityContext:
             privileged: true
             capabilities:

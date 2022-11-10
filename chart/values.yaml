@@ -7,3 +7,4 @@ image: sosedoff/wireguard:latest
 dnsImage: coredns/coredns:1.10.0
 dnsForward: /etc/resolv.conf
 deployKind: DaemonSet
+metrics: false
