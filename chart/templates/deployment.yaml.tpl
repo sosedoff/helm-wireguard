@@ -7,7 +7,7 @@ metadata:
     app: wireguard
 spec:
   {{- if eq .Values.deployKind "Deployment" }}
-    replicas: {{ default 1 .Values.replicas }}
+  replicas: {{ default 1 .Values.replicas }}
   {{- end }}
   selector:
     matchLabels:
