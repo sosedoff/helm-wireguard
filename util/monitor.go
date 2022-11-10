@@ -38,7 +38,7 @@ type peerStats struct {
 }
 
 func (stats peerStats) String() string {
-	return fmt.Sprintf("peer stats: total=%v active=%v tx_rate=%v rx_rate=%v",
+	return fmt.Sprintf("peer stats: total=%v active=%v tx_bytes=%v rx_bytes=%v",
 		stats.count, stats.active,
 		stats.txReceived, stats.txSent,
 	)
@@ -78,8 +78,8 @@ func startPeersMonitor(ctx context.Context, iface string) {
 func setMetricsFromStats(stats peerStats) {
 	activePeerGauge.WithLabelValues(stats.iface).Set(float64(stats.active))
 	totalPeerGauge.WithLabelValues(stats.iface).Set(float64(stats.count))
-	txReceivedCounter.WithLabelValues(stats.iface).Add(float64(stats.txReceived))
-	txSentCounter.WithLabelValues(stats.iface).Add(float64(stats.txSent))
+	txReceivedGauge.WithLabelValues(stats.iface).Add(float64(stats.txReceived))
+	txSentGauge.WithLabelValues(stats.iface).Add(float64(stats.txSent))
 }
 
 func setPeerMetrics(iface string, ts time.Time) {
@@ -110,8 +110,8 @@ func checkPeers(client *wgctrl.Client, iface string, ts time.Time) (stats peerSt
 				stats.active++
 			}
 
-			stats.txReceived = stats.txReceived + peer.ReceiveBytes - lastPeer.ReceiveBytes
-			stats.txSent = stats.txSent + peer.TransmitBytes - lastPeer.TransmitBytes
+			stats.txReceived = peer.ReceiveBytes
+			stats.txSent = peer.TransmitBytes
 		}
 
 		peerMap[key] = &peer

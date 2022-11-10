@@ -26,13 +26,13 @@ var (
 		Help:      "Number of active peers",
 	}, baseLabels)
 
-	txReceivedCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+	txReceivedGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name:      "tx_received",
 		Namespace: "wireguard",
 		Help:      "Total number of bytes received on the interface",
 	}, baseLabels)
 
-	txSentCounter = promauto.NewCounterVec(prometheus.CounterOpts{
+	txSentGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name:      "tx_sent",
 		Namespace: "wireguard",
 		Help:      "Total number of bytes sent on the interface",
@@ -62,13 +62,9 @@ func startMetricsServer(ctx context.Context, addr string) error {
 
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(
-		activePeerGauge,
-		totalPeerGauge,
-		txReceivedCounter,
-		txSentCounter,
-		peerLastHandshakeGauge,
-		peerLastTxGauge,
-		peerLastRxGauge,
+		activePeerGauge, totalPeerGauge,
+		txReceivedGauge, txSentGauge,
+		peerLastHandshakeGauge, peerLastTxGauge, peerLastRxGauge,
 	)
 
 	handler := promhttp.HandlerFor(
