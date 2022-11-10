@@ -33,6 +33,8 @@ spec:
             {{- if .Values.metrics }}
             - name: WG_PEER_MONITOR
               value: "true"
+            - name: WG_PROM_METRICS
+              value: "true"
             {{- end }}
           securityContext:
             privileged: true
@@ -42,6 +44,10 @@ spec:
           ports:
             - containerPort: {{ .Values.listenPort }}
               protocol: UDP
+            - containerPort: 8080
+              protocol: TCP
+            - containerPort: 9090
+              protocol: TCP
           volumeMounts:
             - name: wireguard-config
               mountPath: "/etc/wireguard/{{ .Values.interface }}.conf"

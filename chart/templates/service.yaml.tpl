@@ -16,6 +16,10 @@ spec:
       protocol: UDP
       port: {{ .Values.listenPort }}
       targetPort: {{ .Values.listenPort }}
+    - name: prometheus
+      protocol: TCP
+      port: 9090
+      targetPort: 9090
     - name: coredns
       protocol: UDP
       port: 53

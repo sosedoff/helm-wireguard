@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -27,30 +28,35 @@ func main() {
 }
 
 func start() {
-	iface := os.Getenv("WG_INTERFACE")
-	if iface == "" {
-		iface = "wg0"
-	}
+	iface := getEnvVarWithDefault("WG_INTERFACE", "wg0")
 
-	if os.Getenv("WG_IP_FORWARDING") != "" {
+	if isEnvVarSet("WG_IP_FORWARDING") {
 		log.Println("enabling ip forwarding via sysctl")
 		if err := enableIPForwarding(); err != nil {
 			log.Fatal("sysctl command failed:", err)
 		}
 	}
 
-	if os.Getenv("WG_ENABLE") != "" {
+	if isEnvVarSet("WG_ENABLE") {
 		log.Println("enabling wireguard interface", iface)
 		if err := runCmd("wg-quick", "up", iface); err != nil {
 			log.Fatal("failed to bring interface up:", err)
 		}
 	}
 
-	if os.Getenv("WG_PEER_MONITOR") != "" {
-		ctx := context.Background()
-		go startPeersMonitor(ctx, iface)
+	if isEnvVarSet("WG_PEER_MONITOR") {
+		go startPeersMonitor(context.Background(), iface)
 	}
 
+	if isEnvVarSet("WG_PROM_METRICS") {
+		promAddr := getEnvVarWithDefault("WG_PROM_ADDR", ":9090")
+		go startMetricsServer(context.Background(), promAddr)
+	}
+
+	startServer(iface)
+}
+
+func startServer(iface string) {
 	http.HandleFunc("/health", func(rw http.ResponseWriter, req *http.Request) {
 		out, err := runWithOutput("wg", "show", iface)
 		if err != nil {
@@ -64,11 +70,7 @@ func start() {
 		fmt.Fprintf(rw, "HEALTHY")
 	})
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-
+	port := getEnvVarWithDefault("PORT", "8080")
 	log.Println("starting web endpoint on port", port)
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatal(err)
@@ -80,4 +82,17 @@ func enableIPForwarding() error {
 		return err
 	}
 	return runCmd("sysctl", "-w", "net.ipv4.conf.all.forwarding=1")
+}
+
+func isEnvVarSet(key string) bool {
+	val := strings.ToLower(os.Getenv(key))
+	return val == "1" || val == "true"
+}
+
+func getEnvVarWithDefault(key string, defval string) string {
+	val := os.Getenv(key)
+	if val == "" {
+		val = defval
+	}
+	return val
 }
