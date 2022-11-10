@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -43,6 +44,11 @@ func start() {
 		if err := runCmd("wg-quick", "up", iface); err != nil {
 			log.Fatal("failed to bring interface up:", err)
 		}
+	}
+
+	if os.Getenv("WG_PEER_MONITOR") != "" {
+		ctx := context.Background()
+		go startPeersMonitor(ctx, iface)
 	}
 
 	http.HandleFunc("/health", func(rw http.ResponseWriter, req *http.Request) {

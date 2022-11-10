@@ -15,7 +15,12 @@ release: build
 
 .PHONY: shell
 shell:
-	docker run -it --rm ${DOCKER_IMAGE} bash
+	docker run \
+		--cap-add=NET_ADMIN \
+		-v $(shell pwd)/test:/etc/wireguard \
+		-p 51820:51820/udp \
+		-it --rm \
+		${DOCKER_IMAGE} bash
 
 .PHONY: package
 package:
