@@ -45,7 +45,11 @@ func start() {
 	}
 
 	if isEnvVarSet("WG_PEER_MONITOR") {
-		go startPeersMonitor(context.Background(), iface)
+		monitor, err := NewMonitor(iface)
+		if err != nil {
+			log.Fatal("cant start monitor:", err)
+		}
+		go monitor.Start(context.Background())
 	}
 
 	if isEnvVarSet("WG_PROM_METRICS") {

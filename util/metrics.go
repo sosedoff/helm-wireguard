@@ -15,45 +15,57 @@ var (
 	peerLabels = []string{"interface", "peer"}
 
 	totalPeerGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name:      "peers",
+		Name:      "peers_count",
 		Namespace: "wireguard",
-		Help:      "Number of peers in configuration",
+		Help:      "Total number of peers in the interface configuration",
 	}, baseLabels)
 
 	activePeerGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name:      "active_peers",
+		Name:      "peers_active_count",
 		Namespace: "wireguard",
-		Help:      "Number of active peers",
+		Help:      "Total number of active peers",
 	}, baseLabels)
 
-	txReceivedGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name:      "tx_received",
-		Namespace: "wireguard",
-		Help:      "Total number of bytes received on the interface",
-	}, baseLabels)
-
-	txSentGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name:      "tx_sent",
+	ifaceBytesTxGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name:      "bytes_sent_total",
 		Namespace: "wireguard",
 		Help:      "Total number of bytes sent on the interface",
 	}, baseLabels)
 
+	ifaceBytesRxGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name:      "bytes_received_total",
+		Namespace: "wireguard",
+		Help:      "Total number of bytes received on the interface",
+	}, baseLabels)
+
+	peerTxGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name:      "peer_bytes",
+		Namespace: "wireguard",
+		Help:      "Total number of bytes transmitted to this peer",
+	}, peerLabels)
+
+	peerRxGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name:      "peer_rx_bytes",
+		Namespace: "wireguard",
+		Help:      "Total number of bytes received from this peer",
+	}, peerLabels)
+
 	peerLastHandshakeGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name:      "peer_last_handshake_seconds",
 		Namespace: "wireguard",
-		Help:      "Number of seconds since last handshake",
+		Help:      "Number of seconds since last handshake from this peer",
 	}, peerLabels)
 
 	peerLastTxGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name:      "peer_last_tx_seconds",
+		Name:      "peer_last_trasmit_seconds",
 		Namespace: "wireguard",
-		Help:      "Number of seconds since last TX activity",
+		Help:      "Number of seconds since data trasmitted to this peer",
 	}, peerLabels)
 
 	peerLastRxGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name:      "peer_last_rx_seconds",
+		Name:      "peer_last_receive_seconds",
 		Namespace: "wireguard",
-		Help:      "Number of seconds since last RX activity",
+		Help:      "Number of seconds since data received from this peer",
 	}, peerLabels)
 )
 
@@ -62,9 +74,15 @@ func startMetricsServer(ctx context.Context, addr string) error {
 
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(
-		activePeerGauge, totalPeerGauge,
-		txReceivedGauge, txSentGauge,
-		peerLastHandshakeGauge, peerLastTxGauge, peerLastRxGauge,
+		activePeerGauge,
+		totalPeerGauge,
+		ifaceBytesTxGauge,
+		ifaceBytesRxGauge,
+		peerLastHandshakeGauge,
+		peerLastTxGauge,
+		peerLastRxGauge,
+		peerTxGauge,
+		peerRxGauge,
 	)
 
 	handler := promhttp.HandlerFor(

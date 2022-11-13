@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -15,153 +15,125 @@ const (
 	monitorSchedule = 5 * time.Second
 
 	// Peer to be considered inactive based on last handshake or data transmission time
-	inactiveHandshakeTreshold = 3 * time.Minute
-	inactiveTxTreshold        = 30 * time.Second
+	inactiveHandshakeTreshold = 180 * time.Second
 )
 
-var (
-	peerMap      = map[string]*wgtypes.Peer{}
-	peerStateMap = map[string]peerInfo{}
-)
-
-type peerInfo struct {
-	lastTxTime time.Time
-	lastRxTime time.Time
-}
-
-type peerStats struct {
-	iface      string
-	count      int
-	active     int
-	txSent     int64
-	txReceived int64
-}
-
-func (stats peerStats) String() string {
-	return fmt.Sprintf("peer stats: total=%v active=%v tx_bytes=%v rx_bytes=%v",
-		stats.count, stats.active,
-		stats.txReceived, stats.txSent,
-	)
-}
-
-func startPeersMonitor(ctx context.Context, iface string) {
-	log.Println("starting peers monitor for", iface)
-
-	client, err := wgctrl.New()
-	if err != nil {
-		log.Fatal("monitor failed to obtain wireguard client:", err)
+type (
+	PeerInfo struct {
+		LastTxTime  time.Time
+		LastTxBytes int64
+		LastRxTime  time.Time
+		LastRxBytes int64
 	}
 
-	ticker := time.NewTicker(monitorSchedule)
+	Monitor struct {
+		iface  string
+		period time.Duration
+		client *wgctrl.Client
+		peerTx map[wgtypes.Key]*PeerInfo
+	}
+)
+
+func NewMonitor(iface string) (*Monitor, error) {
+	client, err := wgctrl.New()
+	if err != nil {
+		return nil, err
+	}
+
+	return &Monitor{
+		iface:  iface,
+		client: client,
+		peerTx: map[wgtypes.Key]*PeerInfo{},
+		period: monitorSchedule,
+	}, nil
+}
+
+func (m *Monitor) Start(ctx context.Context) error {
+	log.Printf("[%s] starting monitor\n", m.iface)
+
+	ticker := time.NewTicker(m.period)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case ts := <-ticker.C:
-			stats, err := checkPeers(client, iface, ts)
-			if err != nil {
-				log.Println("monitor error:", err)
-				break
+			if err := m.run(ts); err != nil {
+				log.Printf("[%s] monitor error: %v\n", m.iface, err)
 			}
-
-			setMetricsFromStats(stats)
-			setPeerMetrics(iface, ts)
-
-			log.Println(stats)
 		case <-ctx.Done():
-			log.Println("stopping peer monitor")
-			return
+			log.Printf("[%s] stopping monitor", m.iface)
+			return nil
 		}
 	}
 }
 
-func setMetricsFromStats(stats peerStats) {
-	activePeerGauge.WithLabelValues(stats.iface).Set(float64(stats.active))
-	totalPeerGauge.WithLabelValues(stats.iface).Set(float64(stats.count))
-	txReceivedGauge.WithLabelValues(stats.iface).Add(float64(stats.txReceived))
-	txSentGauge.WithLabelValues(stats.iface).Add(float64(stats.txSent))
-}
-
-func setPeerMetrics(iface string, ts time.Time) {
-	for peerKey, peer := range peerStateMap {
-		if peerInfo := peerMap[peerKey]; peerInfo != nil {
-			peerLastHandshakeGauge.WithLabelValues(iface, peerKey).Set(ts.Sub(peerInfo.LastHandshakeTime).Seconds())
-			peerLastTxGauge.WithLabelValues(iface, peerKey).Set(ts.Sub(peer.lastTxTime).Seconds())
-			peerLastRxGauge.WithLabelValues(iface, peerKey).Set(ts.Sub(peer.lastRxTime).Seconds())
-		}
-	}
-}
-
-func checkPeers(client *wgctrl.Client, iface string, ts time.Time) (stats peerStats, err error) {
-	device, err := client.Device(iface)
+func (m *Monitor) run(ts time.Time) error {
+	device, err := m.client.Device(m.iface)
 	if err != nil {
-		return stats, err
+		return err
 	}
 
-	stats.iface = iface
-	stats.count = len(device.Peers)
+	activePeers := 0
+	totalPeers := len(device.Peers)
+	bytesTx := int64(0)
+	bytesRx := int64(0)
 
 	for _, peer := range device.Peers {
-		key := peer.PublicKey.String()
+		bytesTx = bytesTx + peer.TransmitBytes
+		bytesRx = bytesRx + peer.ReceiveBytes
 
-		lastPeer := peerMap[key]
-		if lastPeer != nil {
-			if isPeerActive(lastPeer, &peer, ts) {
-				stats.active++
-			}
-
-			stats.txReceived = peer.ReceiveBytes
-			stats.txSent = peer.TransmitBytes
+		if ts.Sub(peer.LastHandshakeTime) < inactiveHandshakeTreshold {
+			activePeers++
 		}
 
-		peerMap[key] = &peer
+		txInfo := m.peerTx[peer.PublicKey]
+		if txInfo != nil {
+			if peer.TransmitBytes > txInfo.LastTxBytes {
+				txInfo.LastTxBytes = peer.TransmitBytes
+				txInfo.LastTxTime = ts
+			}
+			if peer.ReceiveBytes > txInfo.LastRxBytes {
+				txInfo.LastRxBytes = peer.ReceiveBytes
+				txInfo.LastRxTime = ts
+			}
+		} else {
+			m.peerTx[peer.PublicKey] = &PeerInfo{}
+		}
+
+		m.setPeerMetrics(peer, ts)
 	}
 
-	return stats, nil
+	activePeerGauge.WithLabelValues(m.iface).Set(float64(activePeers))
+	totalPeerGauge.WithLabelValues(m.iface).Set(float64(totalPeers))
+	ifaceBytesTxGauge.WithLabelValues(m.iface).Set(float64(bytesTx))
+	ifaceBytesRxGauge.WithLabelValues(m.iface).Set(float64(bytesRx))
+
+	return nil
 }
 
-func isPeerActive(prevPeer, peer *wgtypes.Peer, ts time.Time) bool {
-	// Peer is known but has not made any connections yet
-	if peer.LastHandshakeTime.IsZero() {
-		return false
+func (m *Monitor) setPeerCounts(total, active int) {
+	labels := prometheus.Labels{"interface": m.iface}
+
+	totalPeerGauge.With(labels).Set(float64(total))
+	activePeerGauge.With(labels).Set(float64(total))
+}
+
+func (m *Monitor) setPeerMetrics(peer wgtypes.Peer, ts time.Time) {
+	labels := prometheus.Labels{"interface": m.iface, "peer": peer.PublicKey.String()}
+
+	if !peer.LastHandshakeTime.IsZero() {
+		peerLastHandshakeGauge.With(labels).Set(ts.Sub(peer.LastHandshakeTime).Seconds())
 	}
 
-	key := peer.PublicKey.String()
-	checkTxRxTimes := true
+	peerTxGauge.With(labels).Set(float64(peer.TransmitBytes))
+	peerRxGauge.With(labels).Set(float64(peer.ReceiveBytes))
 
-	// Record peer tx/rx timestamps
-	info := peerStateMap[key]
-	if info.lastRxTime.IsZero() && info.lastTxTime.IsZero() {
-		info.lastRxTime = ts
-		info.lastTxTime = ts
-		peerStateMap[key] = info
-		checkTxRxTimes = false
-	}
-
-	// Save last observed TX/RX timestamps
-	if peer.ReceiveBytes > prevPeer.ReceiveBytes {
-		info.lastRxTime = ts
-	}
-	if peer.TransmitBytes > prevPeer.TransmitBytes {
-		info.lastTxTime = ts
-	}
-	peerStateMap[key] = info
-
-	if checkTxRxTimes {
-		// Mark peer as active since we observed changes in both TX/RX timestamps
-		if ts.Sub(info.lastRxTime) <= inactiveTxTreshold && ts.Sub(info.lastTxTime) <= inactiveTxTreshold {
-			return true
+	if tx := m.peerTx[peer.PublicKey]; tx != nil {
+		if !tx.LastRxTime.IsZero() {
+			peerLastTxGauge.With(labels).Set(ts.Sub(tx.LastTxTime).Seconds())
+		}
+		if !tx.LastRxTime.IsZero() {
+			peerLastRxGauge.With(labels).Set(ts.Sub(tx.LastRxTime).Seconds())
 		}
 	}
-
-	// ---------------------------------------------------------------------------
-	// NOTE: cannot determine active state based on traffic patterns, due to the fact
-	// that while peer is disconnected (via the UI or CLI) it might still send
-	// "some" packets to wireguard. In that scenario the only way to know for sure
-	// if the peer is active based on the last handshake, which occurs ever ~2mins.
-	// Only tested on Wireguard for Mac (which is based on wireguard-go).
-	// ---------------------------------------------------------------------------
-
-	// Return activity status based on the last handshake timestamp
-	return ts.Sub(peer.LastHandshakeTime) < inactiveHandshakeTreshold
 }
