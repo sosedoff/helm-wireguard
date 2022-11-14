@@ -12,6 +12,7 @@ RUN go build -o wg-http
 # Release Stage
 # ------------------------------------------------------------------------------
 FROM debian:bullseye-slim
+ARG COREDNS_VERSION=1.10.0
 
 RUN apt-get update
 
@@ -26,6 +27,12 @@ RUN apt install -y \
     iptables \
     iproute2 \
     procps
+
+RUN curl -o coredns.tgz -L https://github.com/coredns/coredns/releases/download/v${COREDNS_VERSION}/coredns_${COREDNS_VERSION}_linux_amd64.tgz && \
+    tar -zxf coredns.tgz && \
+    chmod +x coredns && \
+    mv coredns /usr/bin/coredns && \
+    rm coredns*
 
 RUN \
   apt-get clean autoclean && \
