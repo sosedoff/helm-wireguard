@@ -23,6 +23,7 @@ spec:
       containers:
         - name: wireguard
           image: {{ .Values.image }}
+          imagePullPolicy: Always
           env:
             - name: WG_INTERFACE
               value: "{{ .Values.interface }}"
