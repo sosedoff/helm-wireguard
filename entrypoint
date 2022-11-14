@@ -1,0 +1,23 @@
+#!/bin/bash
+
+set -e
+
+configure_coredns() {
+  echo "creating coredns config"
+
+  mkdir -p /etc/coredns
+  cat << END >> /etc/coredns/Corefile
+. {
+  forward . /etc/resolv.conf
+  log
+  errors
+  cache
+}
+END
+}
+
+if [ ! -f "/etc/coredns/Corefile" ]; then
+  configure_coredns
+fi
+
+exec "$@"

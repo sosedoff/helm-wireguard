@@ -57,6 +57,11 @@ func start() {
 		go startMetricsServer(context.Background(), promAddr)
 	}
 
+	if isEnvVarSet("WG_COREDNS") {
+		log.Println("starting coredns")
+		go startDns(context.Background())
+	}
+
 	startServer(iface)
 }
 
@@ -99,4 +104,8 @@ func getEnvVarWithDefault(key string, defval string) string {
 		val = defval
 	}
 	return val
+}
+
+func startDns(ctx context.Context) error {
+	return runCmd("coredns", "-conf", "/etc/coredns/Corefile")
 }

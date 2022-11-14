@@ -17,8 +17,10 @@ release: build
 shell:
 	docker run \
 		--cap-add=NET_ADMIN \
+		--cap-add=NET_BIND_SERVICE \
 		-v $(shell pwd)/test:/etc/wireguard \
 		-p 51820:51820/udp \
+		-p 53:53/udp \
 		-p 8080:8080 \
 		-p 9090:9090 \
 		-it --rm \
@@ -28,13 +30,16 @@ shell:
 run:
 	docker run \
 		--cap-add=NET_ADMIN \
+		--cap-add=NET_BIND_SERVICE \
 		-v $(shell pwd)/test:/etc/wireguard \
 		-p 51820:51820/udp \
 		-p 8080:8080 \
 		-p 9090:9090 \
+		-p 5053:53/udp \
 		-e WG_ENABLE=1 \
 		-e WG_PEER_MONITOR=1 \
 		-e WG_PROM_METRICS=1 \
+		-e WG_COREDNS=1 \
 		-it --rm \
 		${DOCKER_IMAGE} wg-http
 
