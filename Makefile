@@ -41,7 +41,7 @@ run:
 		-e WG_PROM_METRICS=1 \
 		-e WG_COREDNS=1 \
 		-it --rm \
-		${DOCKER_IMAGE} wg-http
+		${DOCKER_IMAGE}
 
 .PHONY: package
 package:

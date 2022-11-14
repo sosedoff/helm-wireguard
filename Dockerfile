@@ -44,3 +44,4 @@ COPY --from=build /build/wg-http /usr/bin/wg-http
 ADD entrypoint /entrypoint
 
 ENTRYPOINT ["/entrypoint"]
+CMD ["wg-http"]
