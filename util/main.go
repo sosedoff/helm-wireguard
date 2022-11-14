@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
+	"golang.zx2c4.com/wireguard/wgctrl"
 )
 
 func main() {
@@ -29,13 +31,6 @@ func main() {
 
 func start() {
 	iface := getEnvVarWithDefault("WG_INTERFACE", "wg0")
-
-	if isEnvVarSet("WG_IP_FORWARDING") {
-		log.Println("enabling ip forwarding via sysctl")
-		if err := enableIPForwarding(); err != nil {
-			log.Fatal("sysctl command failed:", err)
-		}
-	}
 
 	if isEnvVarSet("WG_ENABLE") {
 		log.Println("enabling wireguard interface", iface)
@@ -66,10 +61,15 @@ func start() {
 }
 
 func startServer(iface string) {
+	client, err := wgctrl.New()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	http.HandleFunc("/health", func(rw http.ResponseWriter, req *http.Request) {
-		out, err := runWithOutput("wg", "show", iface)
+		_, err := client.Device(iface)
 		if err != nil {
-			log.Println("wireguard healthcheck failed:", out)
+			log.Println("cant obtain device:", err)
 			rw.WriteHeader(500)
 			fmt.Fprintf(rw, "UNHEALTHY")
 			return
@@ -84,13 +84,6 @@ func startServer(iface string) {
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatal(err)
 	}
-}
-
-func enableIPForwarding() error {
-	if err := runCmd("sysctl", "-w", "net.ipv4.ip_forward=1"); err != nil {
-		return err
-	}
-	return runCmd("sysctl", "-w", "net.ipv4.conf.all.forwarding=1")
 }
 
 func isEnvVarSet(key string) bool {
