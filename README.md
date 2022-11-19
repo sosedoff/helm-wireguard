@@ -1,6 +1,6 @@
 # Wireguard Helm Chart
 
-Install Wireguard in your K8s cluster with Help.
+Install Wireguard in your K8s cluster with Helm.
 
 _This is experimental software, things might not work_
 
