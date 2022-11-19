@@ -1,3 +1,4 @@
+{{- $dnsPrivateZone := .Values.dnsPrivateZone }}
 ---
 apiVersion: v1
 kind: Secret
@@ -20,9 +21,20 @@ stringData:
     AllowedIPs = {{ default $peer.allowedIPs $peer.src }}
     {{- end }}
   coredns: |
+    {{ .Values.dnsPrivateZone }} {
+      hosts /etc/coredns/private_hosts
+      log
+      errors
+    }
+
     . {
       forward . {{ .Values.dnsForward }}
       log
       errors
       cache
     }
+  coredns_private_hosts: |
+    {{- range $peerName, $peer := .Values.peers }}
+    {{- $foo := split "/" (default $peer.allowedIPs $peer.src) }}
+    {{ $foo._0 }} {{ $peerName }}.{{ $dnsPrivateZone }}
+    {{- end }}

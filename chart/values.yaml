@@ -1,10 +1,10 @@
 replicas: 1
 interface: wg0
 listenPort: 51820
-network: 10.10.0.0/24
+network: 10.10.0.1/24
 networkInterface: eth0
 image: sosedoff/wireguard:latest
-dnsImage: coredns/coredns:1.10.0
 dnsForward: /etc/resolv.conf
+dnsPrivateZone: internal
 deployKind: DaemonSet
-metrics: false
+metrics: true

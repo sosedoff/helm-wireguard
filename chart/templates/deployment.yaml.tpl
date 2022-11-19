@@ -31,6 +31,8 @@ spec:
               value: "true"
             - name: WG_ENABLE
               value: "true"
+            - name: WG_COREDNS
+              value: "true"
             {{- if .Values.metrics }}
             - name: WG_PEER_MONITOR
               value: "true"
@@ -42,6 +44,7 @@ spec:
             capabilities:
               add:
                 - NET_ADMIN
+                - NET_BIND_SERVICE
           ports:
             - containerPort: {{ .Values.listenPort }}
               protocol: UDP
@@ -49,28 +52,26 @@ spec:
               protocol: TCP
             - containerPort: 9090
               protocol: TCP
+            - containerPort: 53
+              protocol: UDP
+          resources:
+            limits:
+              memory: 512Mi
+            requests:
+              cpu: 0.25
+              memory: 128Mi
           volumeMounts:
             - name: wireguard-config
               mountPath: "/etc/wireguard/{{ .Values.interface }}.conf"
               subPath: wireguard
               readOnly: true
-        - name: coredns
-          image: {{ .Values.dnsImage }}
-          args:
-            - "-conf"
-            - /etc/coredns/Corefile
-          ports:
-            - containerPort: 53
-              protocol: UDP
-          securityContext:
-            privileged: true
-            capabilities:
-              add:
-                - NET_BIND_SERVICE
-          volumeMounts:
             - name: wireguard-config
               mountPath: /etc/coredns/Corefile
               subPath: coredns
+              readOnly: true
+            - name: wireguard-config
+              mountPath: /etc/coredns/private_hosts
+              subPath: coredns_private_hosts
               readOnly: true
       volumes:
         - name: wireguard-config
