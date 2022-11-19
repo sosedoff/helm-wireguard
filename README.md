@@ -11,10 +11,10 @@ What does it do:
 - Runs a DNS server (CoreDNS) so that client peers can resolve internal hostnames.
 - Defines LoadBalancer resource so the setup could be scaled up (depends on CloudProvider).
 
-What id does not do:
+What it does not do:
 
-- Manages peer configuration for you. You have to generate and maintain peer keys on your own.
-- Handles peer-to-peer communication when multiple Pods are deployed. This has to do with how wireguard system works.
+- Manage peer configuration for you. You have to generate and maintain peer keys on your own.
+- Handle peer-to-peer communication when multiple Pods are deployed. This has to do with how wireguard system works.
 
 ## Installation
 
