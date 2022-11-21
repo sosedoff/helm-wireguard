@@ -14,6 +14,12 @@ var (
 	baseLabels = []string{"interface"}
 	peerLabels = []string{"interface", "peer"}
 
+	metricsMonitorGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name:      "monitor_healty",
+		Namespace: "wireguard",
+		Help:      "Current status of interface monitor",
+	}, baseLabels)
+
 	totalPeerGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name:      "peers_count",
 		Namespace: "wireguard",
@@ -74,6 +80,7 @@ func startMetricsServer(ctx context.Context, addr string) error {
 
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(
+		metricsMonitorGauge,
 		activePeerGauge,
 		totalPeerGauge,
 		ifaceBytesTxGauge,

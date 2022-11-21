@@ -70,6 +70,7 @@ func (m *Monitor) Start(ctx context.Context) error {
 func (m *Monitor) run(ts time.Time) error {
 	device, err := m.client.Device(m.iface)
 	if err != nil {
+		metricsMonitorGauge.WithLabelValues(m.iface).Set(0)
 		return err
 	}
 
@@ -103,6 +104,7 @@ func (m *Monitor) run(ts time.Time) error {
 		m.setPeerMetrics(peer, ts)
 	}
 
+	metricsMonitorGauge.WithLabelValues(m.iface).Set(1)
 	activePeerGauge.WithLabelValues(m.iface).Set(float64(activePeers))
 	totalPeerGauge.WithLabelValues(m.iface).Set(float64(totalPeers))
 	ifaceBytesTxGauge.WithLabelValues(m.iface).Set(float64(bytesTx))
