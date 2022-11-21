@@ -27,25 +27,25 @@ var (
 	}, baseLabels)
 
 	ifaceBytesTxGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name:      "bytes_sent_total",
+		Name:      "transmitted_bytes",
 		Namespace: "wireguard",
 		Help:      "Total number of bytes sent on the interface",
 	}, baseLabels)
 
 	ifaceBytesRxGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name:      "bytes_received_total",
+		Name:      "received_bytes",
 		Namespace: "wireguard",
 		Help:      "Total number of bytes received on the interface",
 	}, baseLabels)
 
 	peerTxGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name:      "peer_bytes",
+		Name:      "peer_trasmitted_bytes",
 		Namespace: "wireguard",
 		Help:      "Total number of bytes transmitted to this peer",
 	}, peerLabels)
 
 	peerRxGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name:      "peer_rx_bytes",
+		Name:      "peer_received_bytes",
 		Namespace: "wireguard",
 		Help:      "Total number of bytes received from this peer",
 	}, peerLabels)
