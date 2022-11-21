@@ -84,6 +84,14 @@ peers:
 
 You would need to install `wireguard-tools` to create new wireguard private/public keys.
 
+## Running
+
+A few things to consider when running this setup:
+
+- All wireguard features will work just find when running in a single server peer node
+- P2P communication between clients will not work if they're connected to different server peers. Server pods will run using exact same configuration, however wireguard connections require handshake prior to use and will not work if peer is bounced to another server peer.
+- Connection timeouts will occur when client peers are bounced between server pods via loadbalancer.
+
 ## Metrics
 
 To see which metrics are available, query `http://localhost:9090/metrics` in the pod,
