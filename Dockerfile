@@ -14,9 +14,8 @@ RUN go build -o wg-http
 FROM debian:bullseye-slim
 ARG COREDNS_VERSION=1.10.0
 
-RUN apt-get update
-
-RUN apt install -y \
+RUN apt-get update && \
+    apt install -y \
     apt-transport-https \
     ca-certificates \
     curl \
