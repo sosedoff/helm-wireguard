@@ -30,7 +30,7 @@ Create `values.yaml` file (use example below) and run install chart:
 ```bash
 helm upgrade wireguard wireguard/wireguard \
   --install \
-  --atomic \
+  --rollback-on-failure \
   --create-namespace \
   --namespace wireguard \
   --values ./values.yaml
